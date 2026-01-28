@@ -4,167 +4,181 @@
 <meta charset="UTF-8">
 <title>Eco Karaoke</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-  /* Reset */
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-  body {
-    background: #000;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    min-height: 100vh;
-    padding: 1vh;
-    text-align: center;
-  }
+body {
+  background: #000;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1vh;
+  text-align: center;
+}
 
-  h1 {
-    margin: 2vh 0;
-    font-size: clamp(2rem, 5vw, 5rem); /* scales with screen size */
-  }
+h1 {
+  font-size: clamp(2rem, 5vw, 5rem);
+  margin: 2vh 0;
+}
 
-  #hint {
-    opacity: 0.7;
-    margin-bottom: 2vh;
-    font-size: clamp(1rem, 2.5vw, 2rem);
-  }
+#hint {
+  font-size: clamp(1rem, 2.5vw, 2rem);
+  opacity: 0.7;
+  margin-bottom: 2vh;
+}
 
-  #display {
-    font-size: clamp(2rem, 8vw, 6rem);
-    letter-spacing: 0.5em;
-    margin-bottom: 2vh;
-  }
+#display {
+  font-size: clamp(2rem, 8vw, 6rem);
+  letter-spacing: 0.4em;
+  margin-bottom: 2vh;
+}
 
-  #queue {
-    font-size: clamp(1rem, 2.5vw, 2rem);
-    margin-bottom: 2vh;
-    word-wrap: break-word;
-    max-width: 90vw;
-  }
+#queue {
+  font-size: clamp(1rem, 2.5vw, 2rem);
+  margin-bottom: 2vh;
+  max-width: 90vw;
+  word-break: break-word;
+}
 
-  video {
-    width: 90vw; /* responsive width */
-    max-width: 1200px;
-    height: auto; /* maintains aspect ratio */
-    border: 3px solid #fff;
-    border-radius: 1vw;
-    background: #000;
-    margin-bottom: 4vh;
-  }
+video {
+  width: 90vw;
+  max-width: 1200px;
+  border: 3px solid #fff;
+  border-radius: 1vw;
+  background: #000;
+  margin-bottom: 4vh;
+}
 
-  p {
-    font-size: clamp(0.8rem, 1.5vw, 1.2rem);
-    opacity: 0.7;
-    margin-top: auto;
-  }
-
-  /* Optional: scrollbar hiding for queue on small devices */
-  #queue {
-    overflow-x: auto;
-  }
-
-  /* For very small screens, reduce letter spacing of display */
-  @media (max-width: 400px) {
-    #display {
-      letter-spacing: 0.3em;
-    }
-  }
+p {
+  font-size: clamp(0.8rem, 1.5vw, 1.2rem);
+  opacity: 0.6;
+  margin-top: auto;
+}
 </style>
 </head>
+
 <body>
 
 <h1>Eco Karaoke</h1>
-<div id="hint">Enter 4-digit number → OK to queue</div>
+<div id="hint">Enter 4-digit song number → OK</div>
 <div id="display">____</div>
 <div id="queue">Queue: (empty)</div>
-<video id="player" controls autoplay></video>
+
+<video id="player" controls playsinline></video>
+
+<p>Created by: <b>Eco, John Michael S.</b></p>
 
 <script>
-  const serverUrl = "https://microchemical-typologically-phebe.ngrok-free.dev/videos/";
+/* ================= CONFIG ================= */
+const serverUrl = "https://microchemical-typologically-phebe.ngrok-free.dev/videos/";
 
-  // 4-digit code => filename mapping
-  const videos = {
-    "0001": "Tensionado.mp4",
-    "0002": "thinking-out-loud.mp4",
-    "0003": "shape-of-you.mp4",
-    // add more here
-  };
+/* Song number → filename */
+const videos = {
+  "0001": "Tensionado.mp4",
+  "0002": "thinking-out-loud.mp4",
+  "0003": "shape-of-you.mp4"
+};
 
-  let input = "";
-  let queue = [];
-  const display = document.getElementById("display");
-  const queueDiv = document.getElementById("queue");
-  const player = document.getElementById("player");
+/* ================= STATE ================= */
+let input = "";
+let queue = [];
+let userActivated = false;
 
-  function updateDisplay() {
-    display.textContent = input.padEnd(4, "_");
+const display = document.getElementById("display");
+const queueDiv = document.getElementById("queue");
+const player = document.getElementById("player");
+
+/* ================= UI ================= */
+function updateDisplay() {
+  display.textContent = input.padEnd(4, "_");
+}
+
+function updateQueue() {
+  if (queue.length === 0) {
+    queueDiv.textContent = "Queue: (empty)";
+  } else {
+    queueDiv.textContent =
+      "Queue: " + queue.map((v, i) => `${i + 1}. ${v}`).join(" | ");
+  }
+}
+
+/* ================= PLAYBACK ================= */
+function playNext() {
+  if (queue.length === 0) {
+    player.removeAttribute("src");
+    player.load();
+    return;
   }
 
-  function updateQueue() {
-    if(queue.length === 0) {
-      queueDiv.textContent = "Queue: (empty)";
+  const next = queue.shift();
+  player.src = serverUrl + next;
+  updateQueue();
+
+  const playPromise = player.play();
+  if (playPromise) {
+    playPromise.catch(() => {
+      console.log("Waiting for user interaction...");
+    });
+  }
+}
+
+/* Normal end */
+player.addEventListener("ended", playNext);
+
+/* WebOS safety fallback */
+player.addEventListener("timeupdate", () => {
+  if (
+    player.duration &&
+    player.currentTime >= player.duration - 0.3 &&
+    !player.ended
+  ) {
+    playNext();
+  }
+});
+
+/* ================= REMOTE INPUT ================= */
+document.addEventListener("keydown", (e) => {
+  userActivated = true;
+
+  if (e.key >= "0" && e.key <= "9") {
+    if (input.length < 4) {
+      input += e.key;
+      updateDisplay();
+    }
+  }
+
+  if (e.key === "Enter") {
+    if (input.length === 4 && videos[input]) {
+      const startNow = queue.length === 0 && player.paused;
+      queue.push(videos[input]);
+      input = "";
+      updateDisplay();
+      updateQueue();
+      if (startNow) playNext();
     } else {
-      queueDiv.textContent = "Queue: " + queue.map((v,i) => `${i+1}. ${v}`).join(" | ");
-    }
-  }
-
-  function playNext() {
-    if(queue.length === 0) {
-      player.src = "";
-      return;
-    }
-    const nextVideo = queue.shift();
-    player.src = serverUrl + nextVideo;
-    player.play();
-    updateQueue();
-  }
-
-  player.addEventListener("ended", playNext);
-
-  document.addEventListener("keydown", (e) => {
-    if(e.key >= "0" && e.key <= "9") {
-      if(input.length < 4) {
-        input += e.key;
-        updateDisplay();
-      }
-    }
-
-    if(e.key === "Enter") {
-      if(input.length === 4) {
-        if(videos[input]) {
-          const wasEmpty = queue.length === 0 && !player.src;
-          queue.push(videos[input]);
-          updateQueue();
-          input = "";
-          updateDisplay();
-
-          if(wasEmpty) playNext();
-        } else {
-          alert("Invalid song number");
-        }
-      } else {
-        alert("Enter 4 digits");
-      }
-    }
-
-    if(e.key === "Backspace" || e.key === "Escape") {
       input = "";
       updateDisplay();
     }
-  });
+  }
 
-  updateDisplay();
-  updateQueue();
+  if (e.key === "Backspace" || e.key === "Escape") {
+    input = "";
+    updateDisplay();
+  }
+});
+
+/* Init */
+updateDisplay();
+updateQueue();
 </script>
-
-<p>Created by: <b>Eco, John Michael S.</b></p>
 
 </body>
 </html>
