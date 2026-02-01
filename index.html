@@ -13,52 +13,71 @@
 }
 
 body {
-  background: #000;
-  color: #fff;
+  background: black;
+  color: white;
   font-family: Arial, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
-  padding: 1vh;
   text-align: center;
+  padding: 10px;
 }
 
 h1 {
-  font-size: clamp(2rem, 5vw, 5rem);
-  margin: 2vh 0;
+  font-size: clamp(2rem, 5vw, 4rem);
+  margin: 15px 0;
 }
 
 #hint {
-  font-size: clamp(1rem, 2.5vw, 2rem);
   opacity: 0.7;
-  margin-bottom: 2vh;
+  margin-bottom: 10px;
 }
 
 #display {
-  font-size: clamp(2rem, 8vw, 6rem);
+  font-size: clamp(2rem, 8vw, 5rem);
   letter-spacing: 0.4em;
-  margin-bottom: 2vh;
+  margin-bottom: 15px;
 }
 
 #queue {
-  font-size: clamp(1rem, 2.5vw, 2rem);
-  margin-bottom: 2vh;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
   max-width: 90vw;
-  word-break: break-word;
+  word-wrap: break-word;
 }
 
 video {
   width: 90vw;
   max-width: 1200px;
-  border: 3px solid #fff;
-  border-radius: 1vw;
-  background: #000;
-  margin-bottom: 4vh;
+  border: 3px solid white;
+  border-radius: 10px;
+  background: black;
+  margin-bottom: 20px;
 }
 
-p {
-  font-size: clamp(0.8rem, 1.5vw, 1.2rem);
+/* Keypad */
+#keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+#keypad button {
+  font-size: 1.5rem;
+  padding: 15px;
+  background: #111;
+  color: white;
+  border: 2px solid white;
+  border-radius: 10px;
+}
+
+#keypad button:active {
+  background: #444;
+}
+
+footer {
   opacity: 0.6;
   margin-top: auto;
 }
@@ -74,13 +93,28 @@ p {
 
 <video id="player" controls playsinline></video>
 
-<p>Created by: <b>Eco, John Michael S.</b></p>
+<!-- Touch / Phone Keypad -->
+<div id="keypad">
+  <button data-key="1">1</button>
+  <button data-key="2">2</button>
+  <button data-key="3">3</button>
+  <button data-key="4">4</button>
+  <button data-key="5">5</button>
+  <button data-key="6">6</button>
+  <button data-key="7">7</button>
+  <button data-key="8">8</button>
+  <button data-key="9">9</button>
+  <button data-key="clear">CLR</button>
+  <button data-key="0">0</button>
+  <button data-key="enter">OK</button>
+</div>
+
+<footer>Created by <b>Eco, John Michael S.</b></footer>
 
 <script>
 /* ================= CONFIG ================= */
 const serverUrl = "https://microchemical-typologically-phebe.ngrok-free.dev/videos/";
 
-/* Song number → filename */
 const videos = {
   "0001": "Tensionado.mp4",
   "0002": "thinking-out-loud.mp4",
@@ -90,7 +124,6 @@ const videos = {
 /* ================= STATE ================= */
 let input = "";
 let queue = [];
-let userActivated = false;
 
 const display = document.getElementById("display");
 const queueDiv = document.getElementById("queue");
@@ -102,77 +135,67 @@ function updateDisplay() {
 }
 
 function updateQueue() {
-  if (queue.length === 0) {
-    queueDiv.textContent = "Queue: (empty)";
-  } else {
-    queueDiv.textContent =
-      "Queue: " + queue.map((v, i) => `${i + 1}. ${v}`).join(" | ");
-  }
+  queueDiv.textContent =
+    queue.length === 0
+      ? "Queue: (empty)"
+      : "Queue: " + queue.map((v, i) => `${i+1}. ${v}`).join(" | ");
 }
 
 /* ================= PLAYBACK ================= */
 function playNext() {
-  if (queue.length === 0) {
-    player.removeAttribute("src");
-    player.load();
-    return;
-  }
+  if (queue.length === 0) return;
 
   const next = queue.shift();
   player.src = serverUrl + next;
   updateQueue();
 
-  const playPromise = player.play();
-  if (playPromise) {
-    playPromise.catch(() => {
-      console.log("Waiting for user interaction...");
-    });
+  player.play().catch(() => {
+    console.log("Waiting for user interaction");
+  });
+}
+
+player.addEventListener("ended", playNext);
+
+/* ================= INPUT CORE ================= */
+function addDigit(d) {
+  if (input.length < 4) {
+    input += d;
+    updateDisplay();
   }
 }
 
-/* Normal end */
-player.addEventListener("ended", playNext);
-
-/* WebOS safety fallback */
-player.addEventListener("timeupdate", () => {
-  if (
-    player.duration &&
-    player.currentTime >= player.duration - 0.3 &&
-    !player.ended
-  ) {
-    playNext();
+function submitCode() {
+  if (input.length === 4 && videos[input]) {
+    queue.push(videos[input]);
+    if (player.paused) playNext();
   }
+  input = "";
+  updateDisplay();
+  updateQueue();
+}
+
+function clearInput() {
+  input = "";
+  updateDisplay();
+}
+
+/* ================= KEYBOARD + WEBOS REMOTE ================= */
+document.addEventListener("keydown", (e) => {
+  const code = e.keyCode;
+
+  if (code >= 48 && code <= 57) addDigit(String(code - 48)); // 0–9
+  if (code === 13) submitCode(); // OK
+  if (code === 8 || code === 27 || code === 461) clearInput(); // Back
 });
 
-/* ================= REMOTE INPUT ================= */
-document.addEventListener("keydown", (e) => {
-  userActivated = true;
-
-  if (e.key >= "0" && e.key <= "9") {
-    if (input.length < 4) {
-      input += e.key;
-      updateDisplay();
-    }
-  }
-
-  if (e.key === "Enter") {
-    if (input.length === 4 && videos[input]) {
-      const startNow = queue.length === 0 && player.paused;
-      queue.push(videos[input]);
-      input = "";
-      updateDisplay();
-      updateQueue();
-      if (startNow) playNext();
-    } else {
-      input = "";
-      updateDisplay();
-    }
-  }
-
-  if (e.key === "Backspace" || e.key === "Escape") {
-    input = "";
-    updateDisplay();
-  }
+/* ================= PHONE / TOUCH ================= */
+document.querySelectorAll("#keypad button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.key;
+    if (key === "enter") submitCode();
+    else if (key === "clear") clearInput();
+    else addDigit(key);
+  });
 });
 
 /* Init */
